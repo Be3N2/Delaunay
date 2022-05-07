@@ -1,5 +1,5 @@
 let lenna;
-let pointCount = 6;
+let pointCount = 50;
 let vectors = [];
 let imgWidth = 512;
 let imgHeight = 512;

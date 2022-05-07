@@ -107,24 +107,52 @@ class Triangulation {
 		this.triangles = [];
 	  // lexicographically sort the vectors list
 	  this.vectors = lexicoSort(startingNodes);
-	  this.buildBasicTriangluation();
+	  // TODO: probs need to remove duplicates (if they exist pretty unlikely)
+	  this.convexHullTriangulation();
 	}
 
-	buildBasicTriangluation() {
-		for (var i = 0; i < this.vectors.length - 2; i++) {
-			this.triangles.push(new Triangle(this.vectors[i], this.vectors[i + 1], this.vectors[i + 2]));
+	convexHullTriangulation() {
+		// find convex hull
+		let hull = [];
+
+		hull.push(this.vectors[0]); // lexico sort comes in handy
+
+		let current = this.vectors[0];
+		let next = this.vectors[1];
+		while(!current.equals(next)) {
+			for (let i = 0; i < this.vectors.length; i++) {
+				if (!this.vectors[i].equals(current)) {
+					let v1 = p5.Vector.sub(next, current);
+					let v2 = p5.Vector.sub(this.vectors[i], current);
+
+					if (v1.cross(v2).z < 0) {
+						next = this.vectors[i];
+					}
+				}
+			}
+			hull.push(next);
+			current = next;
+			next = this.vectors[0];
 		}
+
+		this.drawHull(hull);
 	}
 
+	drawHull(hull) {
+		for (let i = 0; i < hull.length - 1; i++) {
+			line(hull[i].x, hull[i].y, hull[i+1].x, hull[i+1].y);
+		}
+		line(hull[hull.length-1].x, hull[hull.length-1].y, hull[0].x, hull[0].y);
+	}
 	drawTriangulation() {
 		for (var i = 0; i < this.triangles.length; i++) {
 			this.triangles[i].drawTriangle();
 		}
 
-		let sharedEdge = this.triangles[0].sharesEdge(this.triangles[1]);
-		console.log("Shares edge?", sharedEdge);
+		// let sharedEdge = this.triangles[0].sharesEdge(this.triangles[1]);
+		// console.log("Shares edge?", sharedEdge);
 
-		this.checkDelaunay(this.triangles[0], this.triangles[1], sharedEdge);
+		// this.checkDelaunay(this.triangles[0], this.triangles[1], sharedEdge);
 	}
 
 	checkDelaunay(triangle1, triangle2, sharedEdge) {
