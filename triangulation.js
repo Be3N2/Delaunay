@@ -112,6 +112,9 @@ class Triangulation {
 	}
 
 	convexHullTriangulation() {
+		// follows https://www2.cs.arizona.edu/classes/cs437/fall11/Lecture8.pdf
+		// O(nlogn) convex hull triangulation algorithm
+
 		// find convex hull
 		let hull = [];
 
@@ -119,6 +122,7 @@ class Triangulation {
 
 		let current = this.vectors[0];
 		let next = this.vectors[1];
+		let nextIndex = 1;
 		while(!current.equals(next)) {
 			for (let i = 0; i < this.vectors.length; i++) {
 				if (!this.vectors[i].equals(current)) {
@@ -127,15 +131,88 @@ class Triangulation {
 
 					if (v1.cross(v2).z < 0) {
 						next = this.vectors[i];
+						nextIndex = i;
 					}
 				}
 			}
 			hull.push(next);
 			current = next;
+			this.vectors.splice(nextIndex, 1);
 			next = this.vectors[0];
 		}
+		// take starting node off
+		this.vectors.shift();
 
 		this.drawHull(hull);
+
+		// hull is done, time for triangulation
+
+		// all remaining points are inside the hull
+		// start triangles with random point, this case next up point
+		let startingPoint = this.vectors.shift();
+		for (var i = 0; i < hull.length - 1; i++) {
+			this.triangles.push(new Triangle(hull[i], hull[i+1], startingPoint));
+		}
+
+		for (var i = this.vectors.length-1; i >= 0; i--) {
+			// find triangle that contains this.vectors[i]
+			let j = 0;
+			let found = false;
+
+			while(j < this.triangles.length && !found) {
+				let result = this.pointInTriangle(this.vectors[i], this.triangles[j]);
+				// console.log(result);
+				if (result.w1 >= 0 && result.w2 >= 0 && (result.w1 + result.w2) <= 1) {
+					// inside triangle!
+					found = true;
+					// assuming no duplicate points
+					if (result.w1 == 0) {
+						// on edge a-c
+						console.log("A-C");
+					} else if (result.w2 == 0) {
+						// on edge a-b
+						console.log("A-B");
+					} else if (result.w1 + result.w2 == 1) {
+						// on edge b-c
+						console.log("B-C");
+					} else {
+						// generic inside triangle
+						// console.log("INSIDE TRIANGLE");
+						let point = this.vectors.pop();
+						let a = this.triangles[j].v1;
+						let b = this.triangles[j].v2;
+						let c = this.triangles[j].v3;
+
+						// remove triangle
+						this.triangles.splice(j, 1);
+						this.triangles.push(new Triangle(a, b, point));
+						this.triangles.push(new Triangle(a, c, point));
+						this.triangles.push(new Triangle(b, c, point));
+					}
+				} else {
+					j++;
+				}
+			}
+		}
+	}
+
+	// from fantastic video and code example https://github.com/SebLague/Gamedev-Maths/blob/master/PointInTriangle.cs
+	pointInTriangle(point, triangle) {
+		let s1 = triangle.v3.y - triangle.v1.y;
+		let s2 = triangle.v3.x - triangle.v1.x;
+		let s3 = triangle.v2.y - triangle.v1.y;
+		let s4 = point.y - triangle.v1.y;
+
+		let s5 = triangle.v2.x - triangle.v1.x;
+		// numerator and denominator
+		let num = triangle.v1.x * s1 + s4 * s2 - point.x * s1;
+		let den = s3 * s2 - s5 * s1;
+
+		let w1 = num / den;
+		let w2 = (s4 - w1 * s3) / s1; 
+
+		// return w1, and w2 values
+		return {w1, w2};
 	}
 
 	drawHull(hull) {

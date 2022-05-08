@@ -23,6 +23,7 @@ function setup() {
   triangulation = new Triangulation(vectors);
 
   triangulation.drawTriangulation();
+
   fill(255, 255, 255);
   for (let i = 0; i < vectors.length; i++) {
     ellipse(vectors[i].x, vectors[i].y, 16, 16);
