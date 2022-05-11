@@ -15,7 +15,8 @@ function setup() {
   background(220);
   image(lenna, 512, 0);
   lenna.loadPixels();
-
+  // edge cases 100, 101, 105
+  randomSeed(107);
   for (let i = 0; i < pointCount; i++) {
     vectors.push(createVector(Math.floor(random(512)), Math.floor(random(512))));
   } 
@@ -26,7 +27,7 @@ function setup() {
 
   fill(255, 255, 255);
   for (let i = 0; i < vectors.length; i++) {
-    ellipse(vectors[i].x, vectors[i].y, 16, 16);
+    ellipse(vectors[i].x, vectors[i].y, 4, 4);
   }
 }
 

@@ -37,6 +37,10 @@ class Edge {
 		console.log(this.a.x, this.b.x, this.a.y, this.b.y);
 		return Math.sqrt(Math.pow(this.a.x - this.b.x, 2) + Math.pow(this.a.y - this.b.y, 2));
 	}
+
+	contains(vertex) {
+		return this.a.equals(vertex) || this.b.equals(vertex);
+	}
 }
 
 
@@ -70,6 +74,10 @@ class Triangle {
 		return false;
 	}
 
+	containsEdge(edge) {
+		return this.e1.isSame(edge) || this.e2.isSame(edge) || this.e3.isSame(edge);
+	}
+
 	drawTriangle() {
     let absPoint = 4 * (this.centerV.x + (this.centerV.y * imgWidth));
 		fill(lenna.pixels[absPoint], lenna.pixels[absPoint + 1], lenna.pixels[absPoint + 2]);
@@ -98,6 +106,17 @@ class Triangle {
 		console.log("TEST", a, b, c);
 		// formula time
 		return Math.acos(((a * a) + (b * b) - (c * c))/ (2 * a * b)) * 180 / Math.PI;
+	}
+
+	remainingPoint(edge) {
+		// given an edge of the triangle find remaining point
+		if (!edge.contains(this.v1))
+			return this.v1;
+		if (!edge.contains(this.v2))
+			return this.v2;
+		if (!edge.contains(this.v3))
+			return this.v3;
+		
 	}
 }
 
@@ -159,26 +178,63 @@ class Triangulation {
 			let j = 0;
 			let found = false;
 
+			let point = this.vectors.pop();
 			while(j < this.triangles.length && !found) {
-				let result = this.pointInTriangle(this.vectors[i], this.triangles[j]);
+				let result = this.pointInTriangle(point, this.triangles[j]);
 				// console.log(result);
-				if (result.w1 >= 0 && result.w2 >= 0 && (result.w1 + result.w2) <= 1) {
+				if (result.w1 >= -0.0001 && result.w2 >= -0.0001 && (result.w1 + result.w2) <= 1.0001) {
 					// inside triangle!
 					found = true;
 					// assuming no duplicate points
-					if (result.w1 == 0) {
-						// on edge a-c
-						console.log("A-C");
-					} else if (result.w2 == 0) {
-						// on edge a-b
-						console.log("A-B");
-					} else if (result.w1 + result.w2 == 1) {
-						// on edge b-c
-						console.log("B-C");
+					if ((result.w1 >= -0.0001 && result.w1 <= 0.0001) || 
+							(result.w2 >= -0.0001 && result.w2 <= 0.0001) || 
+							(result.w1 + result.w2 >= 0.9999 && result.w1 + result.w2 <= 1.0001)) {
+						// Edge case time:
+						console.log("EDGE CASE TIME", result.w1, result.w2, result.w1 + result.w2);
+						let touchingTrianglesIndexes = [];
+						if (result.w1 >= -0.0001 && result.w1 <= 0.0001) {
+							console.log("A-C");
+							// on edge a-c or I think: v1-v3
+							touchingTrianglesIndexes = this.findTrianglesWithEdge(this.triangles[j].e3);
+						} else if (result.w2 >= -0.0001 && result.w2 <= 0.0001) {
+							console.log("A-B");
+							// on edge a-b or v1-v2
+							touchingTrianglesIndexes = this.findTrianglesWithEdge(this.triangles[j].e1);
+						} else {
+							console.log("B-C");
+							// on edge b-c or v2-v3
+							touchingTrianglesIndexes = this.findTrianglesWithEdge(this.triangles[j].e2);
+						}
+
+						if (touchingTrianglesIndexes.length == 1) {
+							// co-linear points on the outside of the hull (shouldn't be possible I don't think)
+							console.log("EDGE CASE LENGTH 1", this.triangles[touchingTrianglesIndexes[0]]);
+						} else if (touchingTrianglesIndexes.length == 2) {
+							let triangle1 = this.triangles[touchingTrianglesIndexes[0]];
+							let triangle2 = this.triangles[touchingTrianglesIndexes[1]];
+							
+							// find 4 points plus new point
+							let sharedEdge = triangle1.sharesEdge(triangle2);
+							let a = triangle1.remainingPoint(sharedEdge);
+							let b = sharedEdge.a;
+							let c = sharedEdge.b;
+							let d = triangle2.remainingPoint(sharedEdge);
+							console.log(this.triangles[touchingTrianglesIndexes[0]], this.triangles[touchingTrianglesIndexes[1]], a, b, c, d, point);
+							// remove old triangles (indexes are found consecutively so removing them back to front)							
+							this.triangles.splice(touchingTrianglesIndexes[1], 1);
+							this.triangles.splice(touchingTrianglesIndexes[0], 1);
+
+							// connect the dots making 4 triangles
+							this.triangles.push(new Triangle(a, b, point));
+							this.triangles.push(new Triangle(a, c, point));
+							this.triangles.push(new Triangle(b, d, point));
+							this.triangles.push(new Triangle(c, d, point));
+						} else {
+							console.log("LENGTH OF EDGE CASE IS MORE THAN 2", touchingTrianglesIndexes);
+						}
 					} else {
 						// generic inside triangle
 						// console.log("INSIDE TRIANGLE");
-						let point = this.vectors.pop();
 						let a = this.triangles[j].v1;
 						let b = this.triangles[j].v2;
 						let c = this.triangles[j].v3;
@@ -194,6 +250,8 @@ class Triangulation {
 				}
 			}
 		}
+		// triangulation complete
+		console.log("LEFT OVER", this.vectors);
 	}
 
 	// from fantastic video and code example https://github.com/SebLague/Gamedev-Maths/blob/master/PointInTriangle.cs
@@ -213,6 +271,18 @@ class Triangulation {
 
 		// return w1, and w2 values
 		return {w1, w2};
+	}
+
+	findTrianglesWithEdge(edge) {
+		// return all triangles that share an edge
+		let sharingTrianglesIndexes = [];
+		for (let i = 0; i < this.triangles.length; i++) {
+			if (this.triangles[i].containsEdge(edge)) {
+				sharingTrianglesIndexes.push(i);
+			}
+		}
+
+		return sharingTrianglesIndexes;
 	}
 
 	drawHull(hull) {
