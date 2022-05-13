@@ -1,5 +1,5 @@
 let lenna;
-let pointCount = 50;
+let pointCount = 2000;
 let vectors = [];
 let pointsCopy = [];
 let imgWidth = 512;
@@ -12,25 +12,25 @@ function preload() {
 }
 
 function setup() {
-  createCanvas(1024, 512);
+  createCanvas(imgWidth * 2, imgHeight);
   background(220);
-  image(lenna, 512, 0);
+  image(lenna, imgWidth, 0);
   lenna.loadPixels();
   // edge cases 100, 101, 105, 107
-  randomSeed(107);
+  randomSeed(119);
   for (let i = 0; i < pointCount; i++) {
-    vectors.push(createVector(Math.floor(random(512)), Math.floor(random(512))));
+    vectors.push(createVector(Math.floor(random(imgWidth)), Math.floor(random(imgHeight))));
     pointsCopy.push(vectors[i].copy());
   } 
 
   triangulation = new Triangulation(vectors);
-
+  noStroke();
   triangulation.drawTriangulation();
 
-  fill(255, 255, 255);
-  for (let i = 0; i < pointsCopy.length; i++) {
-    ellipse(pointsCopy[i].x, pointsCopy[i].y, 4, 4);
-  }
+  // fill(255, 255, 255);
+  // for (let i = 0; i < pointsCopy.length; i++) {
+  //   ellipse(pointsCopy[i].x, pointsCopy[i].y, 4, 4);
+  // }
 
 }
 

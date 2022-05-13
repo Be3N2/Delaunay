@@ -34,7 +34,6 @@ class Edge {
 	}
 
 	getLength() {
-		console.log(this.a.x, this.b.x, this.a.y, this.b.y);
 		return Math.sqrt(Math.pow(this.a.x - this.b.x, 2) + Math.pow(this.a.y - this.b.y, 2));
 	}
 
@@ -55,7 +54,7 @@ class Triangle {
 		this.e2 = new Edge(b, c);
 		this.e3 = new Edge(a, c);
 
-		this.centerV = createVector((a.x + b.x + c.x) / 3, (a.y + b.y + c.y) / 3);	
+		this.centerV = createVector(Math.round((a.x + b.x + c.x) / 3), Math.round((a.y + b.y + c.y) / 3));	
 	}
 
 	sharesEdge(triangle2) {
@@ -103,7 +102,6 @@ class Triangle {
 			b = this.e2.getLength();
 		}
 
-		console.log("TEST", a, b, c);
 		// formula time
 		return Math.acos(((a * a) + (b * b) - (c * c))/ (2 * a * b)) * 180 / Math.PI;
 	}
@@ -127,8 +125,20 @@ class Triangulation {
 		this.hull = [];
 	  // lexicographically sort the vectors list
 	  this.vectors = lexicoSort(startingNodes);
+	  // remove duplicates
+	  this.removeDuplicates();
+
 	  // TODO: probs need to remove duplicates (if they exist pretty unlikely)
 	  this.convexHullTriangulation();
+	  this.delaunayFlipping();
+	}
+
+	removeDuplicates() {
+		for (let i = this.vectors.length - 1; i >= 1; i--) {
+			if (this.vectors[i].equals(this.vectors[i-1])) {
+				this.vectors.splice(i, 1);
+			}
+		}
 	}
 
 	convexHullTriangulation() {
@@ -187,22 +197,22 @@ class Triangulation {
 			while(j < this.triangles.length && !found) {
 				let result = this.pointInTriangle(point, this.triangles[j]);
 
-				if (result.w1 >= -0.0001 && result.w2 >= -0.0001 && (result.w1 + result.w2) <= 1.0001) {
+				if (result.w1 >= -0.001 && result.w2 >= -0.001 && (result.w1 + result.w2) <= 1.001) {
 					// inside triangle!
 					found = true;
 
 					// assuming no duplicate points
-					if ((result.w1 >= -0.0001 && result.w1 <= 0.0001) || 
-							(result.w2 >= -0.0001 && result.w2 <= 0.0001) || 
-							(result.w1 + result.w2 >= 0.9999 && result.w1 + result.w2 <= 1.0001)) {
+					if ((result.w1 >= -0.001 && result.w1 <= 0.001) || 
+							(result.w2 >= -0.001 && result.w2 <= 0.001) || 
+							(result.w1 + result.w2 >= 0.999 && result.w1 + result.w2 <= 1.001)) {
 						// Edge case time:
 						console.log("EDGE CASE TIME", result.w1, result.w2, result.w1 + result.w2);
 						let touchingTrianglesIndexes = [];
-						if (result.w1 >= -0.0001 && result.w1 <= 0.0001) {
+						if (result.w1 >= -0.001 && result.w1 <= 0.001) {
 							console.log("A-C");
 							// on edge a-c or I think: v1-v3
 							touchingTrianglesIndexes = this.findTrianglesWithEdge(this.triangles[j].e3);
-						} else if (result.w2 >= -0.0001 && result.w2 <= 0.0001) {
+						} else if (result.w2 >= -0.001 && result.w2 <= 0.001) {
 							console.log("A-B");
 							// on edge a-b or v1-v2
 							touchingTrianglesIndexes = this.findTrianglesWithEdge(this.triangles[j].e1);
@@ -258,6 +268,41 @@ class Triangulation {
 			}
 		}
 		// triangulation complete
+	}
+
+	delaunayFlipping() {
+		console.log(this.triangles.length);
+		// working from outline given here https://tildesites.bowdoin.edu/~ltoma/teaching/cs3250-CompGeom/spring17/Lectures/notes-delaunay.pdf
+		// adapting edge centric algorithm to triangle represented
+		let allDelaunay = true;
+		let counter = 0;
+		do {
+			allDelaunay = true;
+			for (let i = 0; i < this.triangles.length; i++) {
+				for (let j = 0; j < this.triangles.length; j++) {
+					if (i != j) {
+						let edge = this.triangles[i].sharesEdge(this.triangles[j]);
+						if (edge) {
+							if (!this.checkDelaunay(this.triangles[i], this.triangles[j], edge)) {
+								allDelaunay = false;
+								
+								// flip edge
+								let remainingA = this.triangles[i].remainingPoint(edge);
+								let remainingB = this.triangles[j].remainingPoint(edge);
+								this.triangles[i] = new Triangle(remainingA, remainingB, edge.a);
+								this.triangles[j] = new Triangle(remainingA, remainingB, edge.b)
+							}
+						}
+					}
+				}
+			}
+			console.log("ITERATING");
+			counter++;
+			if (counter == 10) {
+				console.log("HIT LIMIT");
+				return;
+			}
+		} while (!allDelaunay)
 	}
 
 	// from fantastic video and code example https://github.com/SebLague/Gamedev-Maths/blob/master/PointInTriangle.cs
@@ -316,12 +361,7 @@ class Triangulation {
 		let delta1 = triangle1.getDelta(sharedEdge);
 		let delta2 = triangle2.getDelta(sharedEdge);
 
-		console.log("DELTAS:", delta1, delta2, delta1+delta2)
-		if (delta1 + delta2 < 180) {
-			console.log("DELAUNAY");
-		} else {
-			console.log("NEEDS FLIPPED");
-		}
-
+		// less than 180 means it is delaunay
+		return (delta1 + delta2 < 180);
 	}
 }
