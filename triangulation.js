@@ -124,6 +124,7 @@ class Triangle {
 class Triangulation {
 	constructor(startingNodes) {
 		this.triangles = [];
+		this.hull = [];
 	  // lexicographically sort the vectors list
 	  this.vectors = lexicoSort(startingNodes);
 	  // TODO: probs need to remove duplicates (if they exist pretty unlikely)
@@ -135,14 +136,12 @@ class Triangulation {
 		// O(nlogn) convex hull triangulation algorithm
 
 		// find convex hull
-		let hull = [];
-
-		hull.push(this.vectors[0]); // lexico sort comes in handy
+		this.hull.push(this.vectors[0]); // lexico sort comes in handy
 
 		let current = this.vectors[0];
 		let next = this.vectors[1];
 		let nextIndex = 1;
-		while(!current.equals(next)) {
+		while(true) {
 			for (let i = 0; i < this.vectors.length; i++) {
 				if (!this.vectors[i].equals(current)) {
 					let v1 = p5.Vector.sub(next, current);
@@ -154,23 +153,28 @@ class Triangulation {
 					}
 				}
 			}
-			hull.push(next);
+			if(next.equals(this.vectors[0])) {
+				// back to beginning
+				break;
+			}
+			this.hull.push(next);
 			current = next;
 			this.vectors.splice(nextIndex, 1);
 			next = this.vectors[0];
+			nextIndex = 0;
 		}
 		// take starting node off
-		this.vectors.shift();
-
-		this.drawHull(hull);
+		this.hull.push(this.vectors.shift())
+		// this.drawHull();
 
 		// hull is done, time for triangulation
 
 		// all remaining points are inside the hull
 		// start triangles with random point, this case next up point
-		let startingPoint = this.vectors.shift();
-		for (var i = 0; i < hull.length - 1; i++) {
-			this.triangles.push(new Triangle(hull[i], hull[i+1], startingPoint));
+		let startingPoint = this.vectors[Math.floor((this.vectors.length/2) - 1)];
+		this.vectors.splice((this.vectors.length/2) - 1, 1);
+		for (var i = 0; i < this.hull.length - 1; i++) {
+			this.triangles.push(new Triangle(this.hull[i], this.hull[i+1], startingPoint));
 		}
 
 		for (var i = this.vectors.length-1; i >= 0; i--) {
@@ -179,12 +183,14 @@ class Triangulation {
 			let found = false;
 
 			let point = this.vectors.pop();
+
 			while(j < this.triangles.length && !found) {
 				let result = this.pointInTriangle(point, this.triangles[j]);
-				// console.log(result);
+
 				if (result.w1 >= -0.0001 && result.w2 >= -0.0001 && (result.w1 + result.w2) <= 1.0001) {
 					// inside triangle!
 					found = true;
+
 					// assuming no duplicate points
 					if ((result.w1 >= -0.0001 && result.w1 <= 0.0001) || 
 							(result.w2 >= -0.0001 && result.w2 <= 0.0001) || 
@@ -219,7 +225,7 @@ class Triangulation {
 							let b = sharedEdge.a;
 							let c = sharedEdge.b;
 							let d = triangle2.remainingPoint(sharedEdge);
-							console.log(this.triangles[touchingTrianglesIndexes[0]], this.triangles[touchingTrianglesIndexes[1]], a, b, c, d, point);
+
 							// remove old triangles (indexes are found consecutively so removing them back to front)							
 							this.triangles.splice(touchingTrianglesIndexes[1], 1);
 							this.triangles.splice(touchingTrianglesIndexes[0], 1);
@@ -230,6 +236,7 @@ class Triangulation {
 							this.triangles.push(new Triangle(b, d, point));
 							this.triangles.push(new Triangle(c, d, point));
 						} else {
+							// must be a duplicate point
 							console.log("LENGTH OF EDGE CASE IS MORE THAN 2", touchingTrianglesIndexes);
 						}
 					} else {
@@ -251,7 +258,6 @@ class Triangulation {
 			}
 		}
 		// triangulation complete
-		console.log("LEFT OVER", this.vectors);
 	}
 
 	// from fantastic video and code example https://github.com/SebLague/Gamedev-Maths/blob/master/PointInTriangle.cs
@@ -285,14 +291,14 @@ class Triangulation {
 		return sharingTrianglesIndexes;
 	}
 
-	drawHull(hull) {
-		for (let i = 0; i < hull.length - 1; i++) {
-			line(hull[i].x, hull[i].y, hull[i+1].x, hull[i+1].y);
+	drawHull() {
+		for (let i = 0; i < this.hull.length - 1; i++) {
+			line(this.hull[i].x, this.hull[i].y, this.hull[i+1].x, this.hull[i+1].y);
 		}
-		line(hull[hull.length-1].x, hull[hull.length-1].y, hull[0].x, hull[0].y);
+		line(this.hull[this.hull.length-1].x, this.hull[this.hull.length-1].y, this.hull[0].x, this.hull[0].y);
 	}
 	drawTriangulation() {
-		for (var i = 0; i < this.triangles.length; i++) {
+		for (let i = 0; i < this.triangles.length; i++) {
 			this.triangles[i].drawTriangle();
 		}
 
