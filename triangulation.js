@@ -54,7 +54,11 @@ class Triangle {
 		this.e2 = new Edge(b, c);
 		this.e3 = new Edge(a, c);
 
-		this.centerV = createVector(Math.round((a.x + b.x + c.x) / 3), Math.round((a.y + b.y + c.y) / 3));	
+		this.centerV = createVector((a.x + b.x + c.x) / 3, (a.y + b.y + c.y) / 3);
+
+		this.color = null;
+		this.containedPoints = 0;
+		this.totalError = 0;	
 	}
 
 	sharesEdge(triangle2) {
@@ -78,8 +82,9 @@ class Triangle {
 	}
 
 	drawTriangle() {
-    let absPoint = 4 * (this.centerV.x + (this.centerV.y * imgWidth));
-		fill(lenna.pixels[absPoint], lenna.pixels[absPoint + 1], lenna.pixels[absPoint + 2]);
+    let absPoint = 4 * (Math.round(this.centerV.x) + (Math.round(this.centerV.y) * imgWidth));
+ 		this.color = {r: lenna.pixels[absPoint], g: lenna.pixels[absPoint + 1], b: lenna.pixels[absPoint + 2]};
+ 		fill(this.color.r, this.color.g, this.color.b);
     triangle(this.v1.x, this.v1.y, this.v2.x, this.v2.y, this.v3.x, this.v3.y);
 	}
 
@@ -115,6 +120,11 @@ class Triangle {
 		if (!edge.contains(this.v3))
 			return this.v3;
 		
+	}
+
+	addError(color) {
+		this.containedPoints++;
+		this.totalError += ((Math.abs(color.r - this.color.r) / 255) + (Math.abs(color.g - this.color.g) / 255) + (Math.abs(color.b - this.color.b) / 255) / 3);
 	}
 }
 
@@ -183,11 +193,11 @@ class Triangulation {
 		// start triangles with random point, this case next up point
 		let startingPoint = this.vectors[Math.floor((this.vectors.length/2) - 1)];
 		this.vectors.splice((this.vectors.length/2) - 1, 1);
-		for (var i = 0; i < this.hull.length - 1; i++) {
+		for (let i = 0; i < this.hull.length - 1; i++) {
 			this.triangles.push(new Triangle(this.hull[i], this.hull[i+1], startingPoint));
 		}
 
-		for (var i = this.vectors.length-1; i >= 0; i--) {
+		for (let i = this.vectors.length-1; i >= 0; i--) {
 			// find triangle that contains this.vectors[i]
 			let j = 0;
 			let found = false;
@@ -206,18 +216,14 @@ class Triangulation {
 							(result.w2 >= -0.001 && result.w2 <= 0.001) || 
 							(result.w1 + result.w2 >= 0.999 && result.w1 + result.w2 <= 1.001)) {
 						// Edge case time:
-						console.log("EDGE CASE TIME", result.w1, result.w2, result.w1 + result.w2);
 						let touchingTrianglesIndexes = [];
 						if (result.w1 >= -0.001 && result.w1 <= 0.001) {
-							console.log("A-C");
 							// on edge a-c or I think: v1-v3
 							touchingTrianglesIndexes = this.findTrianglesWithEdge(this.triangles[j].e3);
 						} else if (result.w2 >= -0.001 && result.w2 <= 0.001) {
-							console.log("A-B");
 							// on edge a-b or v1-v2
 							touchingTrianglesIndexes = this.findTrianglesWithEdge(this.triangles[j].e1);
 						} else {
-							console.log("B-C");
 							// on edge b-c or v2-v3
 							touchingTrianglesIndexes = this.findTrianglesWithEdge(this.triangles[j].e2);
 						}
@@ -289,6 +295,7 @@ class Triangulation {
 								// flip edge
 								let remainingA = this.triangles[i].remainingPoint(edge);
 								let remainingB = this.triangles[j].remainingPoint(edge);
+
 								this.triangles[i] = new Triangle(remainingA, remainingB, edge.a);
 								this.triangles[j] = new Triangle(remainingA, remainingB, edge.b)
 							}
@@ -342,15 +349,11 @@ class Triangulation {
 		}
 		line(this.hull[this.hull.length-1].x, this.hull[this.hull.length-1].y, this.hull[0].x, this.hull[0].y);
 	}
+
 	drawTriangulation() {
 		for (let i = 0; i < this.triangles.length; i++) {
 			this.triangles[i].drawTriangle();
 		}
-
-		// let sharedEdge = this.triangles[0].sharesEdge(this.triangles[1]);
-		// console.log("Shares edge?", sharedEdge);
-
-		// this.checkDelaunay(this.triangles[0], this.triangles[1], sharedEdge);
 	}
 
 	checkDelaunay(triangle1, triangle2, sharedEdge) {
@@ -363,5 +366,57 @@ class Triangulation {
 
 		// less than 180 means it is delaunay
 		return (delta1 + delta2 < 180);
+	}
+
+	errorImprovement() {
+		for (let i = 0; i < this.triangles.length; i++) {
+			this.triangles[i].containedPoints = 0;
+			this.triangles[i].totalError = 0;
+		}
+
+		for (let y = 0; y < imgHeight; y++) {
+			for (let x = 0; x < imgWidth; x++) {
+				let triangles = this.triangles.filter((element) => {
+					let result = this.pointInTriangle(createVector(x, y), element);
+					return (result.w1 > 0 && result.w1 < 1 && result.w2 > 0 && result.w2 < 1 && result.w1 + result.w2 < 1);
+				});
+				// only add error to points contained in one triangle (ignore borders)
+				if (triangles.length == 1) {
+					let absPoint = 4 * (x + (y * imgWidth));
+ 					let pointColor = {r: lenna.pixels[absPoint], g: lenna.pixels[absPoint + 1], b: lenna.pixels[absPoint + 2]};
+ 					triangles[0].addError(pointColor);
+				}
+			}
+			// console.log(y);
+		}
+
+		let averageError = 0;
+		let number = 0;
+		// divide up the triangles with high enough error
+		for (let i = this.triangles.length-1; i >= 0; i--) {
+			let error = this.triangles[i].totalError / this.triangles[i].containedPoints;
+
+			if (error) {
+				averageError += error;
+				number++;
+				if (error > 0.18) {
+					let a = this.triangles[i].v1;
+					let b = this.triangles[i].v2;
+					let c = this.triangles[i].v3;
+					let point = this.triangles[i].centerV;
+
+					// remove triangle
+					this.triangles.splice(i, 1);
+					this.triangles.push(new Triangle(a, b, point));
+					this.triangles.push(new Triangle(a, c, point));
+					this.triangles.push(new Triangle(b, c, point));
+				}
+			}
+		}
+
+		averageError /= number;
+		console.log('average error', averageError);
+
+		this.delaunayFlipping();
 	}
 }
