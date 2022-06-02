@@ -376,18 +376,18 @@ class Triangulation {
 
 		for (let y = 0; y < imgHeight; y++) {
 			for (let x = 0; x < imgWidth; x++) {
-				let triangles = this.triangles.filter((element) => {
+				let triangle = this.triangles.find((element) => {
 					let result = this.pointInTriangle(createVector(x, y), element);
 					return (result.w1 > 0 && result.w1 < 1 && result.w2 > 0 && result.w2 < 1 && result.w1 + result.w2 < 1);
 				});
 				// only add error to points contained in one triangle (ignore borders)
-				if (triangles.length == 1) {
+				if (triangle) {
 					let absPoint = 4 * (x + (y * imgWidth));
  					let pointColor = {r: lenna.pixels[absPoint], g: lenna.pixels[absPoint + 1], b: lenna.pixels[absPoint + 2]};
- 					triangles[0].addError(pointColor);
+ 					triangle.addError(pointColor);
 				}
 			}
-			// console.log(y);
+			console.log(y);
 		}
 
 		let averageError = 0;

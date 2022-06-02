@@ -1,18 +1,21 @@
 let lenna;
-let pointCount = 100;
+let pointCount = 500;
 let vectors = [];
 let pointsCopy = [];
-let imgWidth = 512;
-let imgHeight = 512;
+let imgWidth;
+let imgHeight;
 let triangulation;
 
 // navigate to http://127.0.0.1:8887
 function preload() {
-  lenna = loadImage('assets/lenna.png');
-  // lenna = loadImage('assets/SierraandMom2.jpg');
+  // lenna = loadImage('assets/lenna.png');
+  lenna = loadImage('assets/redfoxHead.jpg');
 }
 
 function setup() {
+  imgWidth = lenna.width;
+  imgHeight = lenna.height;
+
   createCanvas(imgWidth * 2, imgHeight);
   background(220);
   image(lenna, imgWidth, 0);
@@ -32,6 +35,7 @@ function setup() {
   // for (let i = 0; i < pointsCopy.length; i++) {
   //   ellipse(pointsCopy[i].x, pointsCopy[i].y, 4, 4);
   // }
+
   let loops = 0;
   let interval = setInterval(() => {
     loops++;
@@ -39,7 +43,7 @@ function setup() {
     triangulation.errorImprovement();
     triangulation.drawTriangulation();
 
-    if (loops == 4) {
+    if (loops == 2) {
       clearInterval(interval);
     }
   }, 500);
